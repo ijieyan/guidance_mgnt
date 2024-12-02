@@ -1,0 +1,231 @@
+footer.php
+<footer>
+    <div class="container">
+        <p>&copy; <?php echo date('Y'); ?> Senior High School Guidance Management. All Rights Reserved.</p>
+    </div>
+</footer>
+</body>
+</html>
+
+login.php
+<?php
+include('includes/db.php');
+include('functions/user_functions.php');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+    
+    $user = loginUser($username, $password);
+    if ($user) {
+        session_start();
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['role'] = $user['role'];
+        header('Location: dashboard.php');
+    } else {
+        $error = 'Invalid login credentials.';
+    }
+}
+?>
+<?php include('includes/header.php'); ?>
+
+<div class="container">
+    <h2>Login</h2>
+    <form method="POST" action="login.php">
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit">Login</button>
+    </form>
+    <?php if (isset($error)): ?>
+        <p class="error"><?php echo $error; ?></p>
+    <?php endif; ?>
+</div>
+
+<?php include('includes/footer.php'); ?>
+
+register.php
+<?php
+include('includes/db.php');
+include('functions/user_functions.php');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+    $first_name = $_POST['first_name'];
+    $last_name = $_POST['last_name'];
+    $email = $_POST['email'];
+    $role = $_POST['role'];
+
+    if (registerUser($username, $password, $first_name, $last_name, $email, $role)) {
+        header('Location: login.php');
+    } else {
+        $error = 'Registration failed. Please try again.';
+    }
+}
+?>
+<?php include('includes/header.php'); ?>
+
+<div class="container">
+    <h2>Register</h2>
+    <form method="POST" action="register.php">
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <div>
+            <label for="first_name">First Name:</label>
+            <input type="text" id="first_name" name="first_name" required>
+        </div>
+        <div>
+            <label for="last_name">Last Name:</label>
+            <input type="text" id="last_name" name="last_name" required>
+        </div>
+        <div>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        <div>
+            <label for="role">Role:</label>
+            <select id="role" name="role" required>
+                <option value="student">Student</option>
+                <option value="counselor">Counselor</option>
+            </select>
+        </div>
+        <button type="submit">Register</button>
+    </form>
+    <?php if (isset($error)): ?>
+        <p class="error"><?php echo $error; ?></p>
+    <?php endif; ?>
+</div>
+
+<?php include('includes/footer.php'); ?>
+
+dashboard.php
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
+include('includes/db.php');
+
+$user_id = $_SESSION['user_id'];
+$role = $_SESSION['role'];
+?>
+
+<?php include('includes/header.php'); ?>
+
+<div class="container">
+    <h2>Dashboard</h2>
+    
+    <?php if ($role == 'student'): ?>
+        <h3>Student Dashboard</h3>
+        <p><a href="profile.php">View Profile</a></p>
+        <p><a href="appointment.php">Request Appointment with a Counselor</a></p>
+        <p><a href="messages.php">View Messages</a></p>
+        
+    <?php elseif ($role == 'counselor'): ?>
+        <h3>Counselor Dashboard</h3>
+        <p><a href="profile.php">View Profile</a></p>
+        <p><a href="appointment.php">View Appointments</a></p>
+        <p><a href="messages.php">View Messages</a></p>
+        <p><a href="counselor_dashboard.php">Manage Schedule</a></p>
+        
+    <?php endif; ?>
+</div>
+
+<?php include('includes/footer.php'); ?>
+
+profile.php
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
+include('includes/db.php');
+
+$user_id = $_SESSION['user_id'];
+$result = $conn->query("SELECT * FROM users WHERE id = '$user_id'");
+$user = $result->fetch_assoc();
+?>
+
+<?php include('includes/header.php'); ?>
+
+<div class="container">
+    <h2>Profile</h2>
+    <p><strong>Username:</strong> <?php echo $user['username']; ?></p>
+    <p><strong>Name:</strong> <?php echo $user['first_name'] . ' ' . $user['last_name']; ?></p>
+    <p><strong>Email:</strong> <?php echo $user['email']; ?></p>
+    <p><strong>Role:</strong> <?php echo ucfirst($user['role']); ?></p>
+
+    <a href="edit_profile.php">Edit Profile</a>
+</div>
+
+<?php include('includes/footer.php'); ?>
+
+appointment.php
+<?php
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'student') {
+    header('Location: login.php');
+    exit();
+}
+
+include('includes/db.php');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user_id = $_SESSION['user_id'];
+    $counselor_id = $_POST['counselor_id'];
+    $appointment_date = $_POST['appointment_date'];
+    $reason = $_POST['reason'];
+    
+    $stmt = $conn->prepare("INSERT INTO appointments (user_id, counselor_id, appointment_date, reason) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("iiss", $user_id, $counselor_id, $appointment_date, $reason);
+    $stmt->execute();
+    header('Location: dashboard.php');
+}
+
+$counselors = $conn->query("SELECT * FROM users WHERE role = 'counselor'");
+?>
+
+<?php include('includes/header.php'); ?>
+
+<div class="container">
+    <h2>Request Appointment</h2>
+    <form method="POST" action="appointment.php">
+        <div>
+            <label for="counselor_id">Select Counselor:</label>
+            <select id="counselor_id" name="counselor_id" required>
+                <?php while ($counselor = $counselors->fetch_assoc()): ?>
+                    <option value="<?php echo $counselor['id']; ?>"><?php echo $counselor['first_name'] . ' ' . $counselor['last_name']; ?></option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div>
+            <label for="appointment_date">Date and Time:</label>
+            <input type="datetime-local" id="appointment_date" name="appointment_date" required>
+        </div>
+        <div>
+            <label for="reason">Reason for Appointment:</label>
+            <textarea id="reason" name="reason" required></textarea>
+        </div>
+        <button type="submit">Request Appointment</button>
+    </form>
+</div>
+
+<?php include('includes/footer.php'); ?>
+
+
